@@ -1,81 +1,98 @@
-import os
-from flask import Flask, send_from_directory
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+# Ask Doubt telegram @miracle_bots
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-UPLOAD_FOLDER = "downloads"
+import sys
+import glob
+import importlib
+from pathlib import Path
+from pyrogram import idle
+import logging
+import logging.config
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
 
-app = Flask(__name__)
+# Get logging configurations
+logging.config.fileConfig('logging.conf')
+logging.getLogger().setLevel(logging.INFO)
+logging.getLogger("pyrogram").setLevel(logging.ERROR)
 
-@app.route('/files/<filename>')
-def serve_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
 
-# Telegram Handlers
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send me a file, and I'll give you a download link!")
+from pyrogram import Client, __version__
+from pyrogram.raw.all import layer
+from config import LOG_CHANNEL, ON_HEROKU, CLONE_MODE, PORT
+from typing import Union, Optional, AsyncGenerator
+from pyrogram import types
+from Script import script 
+from datetime import date, datetime 
+import pytz
+from aiohttp import web
+from miraclebots.server import web_server
 
-async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    file = await update.message.document.get_file()
-    filename = update.message.document.file_name
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    await file.download_to_drive(filepath)
+# Don't Remove Credit Tg - @miracle_bots
+# Ask Doubt on telegram @funnytamilan
 
-    app_url = os.environ.get("APP_URL", "https://your-app.up.railway.app")
-    file_link = f"{app_url}/files/{filename}"
-    await update.message.reply_text(f"File uploaded! Shareable link:
-{file_link}")
+import asyncio
+from pyrogram import idle
+from plugins.clone import restart_bots
+from miracle.bot import StreamBot
+from miracle.utils.keepalive import ping_server
+from miracle.bot.clients import initialize_clients
 
-def telegram_bot():
-    app_bot = ApplicationBuilder().token(BOT_TOKEN).build()
-    app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(MessageHandler(filters.Document.ALL, handle_file))
-    app_bot.run_polling()
+# Don't Remove Credit Tg - @mircale_bots
+# Ask Doubt on telegram @funnytamilan
 
-if __name__ == "__main__":
-    from threading import Thread
-    Thread(target=telegram_bot).start()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    doc = update.message.document
-    file_size_mb = doc.file_size / (1024 * 1024)
 
-    if file_size_mb > MAX_FILE_SIZE_MB:
-        await update.message.reply_text("❌ File too large. Max 20MB allowed.")
-        return
+ppath = "plugins/*.py"
+files = glob.glob(ppath)
+StreamBot.start()
+loop = asyncio.get_event_loop()
 
-    file = await doc.get_file()
-    filename = doc.file_name
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    await file.download_to_drive(filepath)
+# Don't Remove Credit Tg - @miracle_bots
+# Ask Doubt on telegram @funnytamilan
 
-    filetype = mimetypes.guess_type(filename)[0] or "Unknown"
-    app_url = os.environ.get("APP_URL", "https://your-app.up.railway.app")
-    file_link = f"{app_url}/files/{filename}"
 
-    await update.message.reply_text(
-        f"✅ File received!
-"
-        f"📄 Name: {filename}
-"
-        f"💾 Size: {file_size_mb:.2f} MB
-"
-        f"🗂 Type: {filetype}
-"
-        f"🔗 Link: {file_link}"
-    )
+async def start():
+    print('\n')
+    print('Initalizing miracle bots')
+    bot_info = await StreamBot.get_me()
+    StreamBot.username = bot_info.username
+    await initialize_clients()
+    for name in files:
+        with open(name) as a:
+            patt = Path(a.name)
+            plugin_name = patt.stem.replace(".py", "")
+            plugins_dir = Path(f"plugins/{plugin_name}.py")
+            import_path = "plugins.{}".format(plugin_name)
+            spec = importlib.util.spec_from_file_location(import_path, plugins_dir)
+            load = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(load)
+            sys.modules["plugins." + plugin_name] = load
+            print("miracle bots Imported => " + plugin_name)
+    if ON_HEROKU:
+        asyncio.create_task(ping_server())
+    me = await StreamBot.get_me()
+    tz = pytz.timezone('Asia/Kolkata')
+    today = date.today()
+    now = datetime.now(tz)
+    time = now.strftime("%H:%M:%S %p")
+    app = web.AppRunner(await web_server())
+    await StreamBot.send_message(chat_id=LOG_CHANNEL, text=script.RESTART_TXT.format(today, time))
+    await app.setup()
+    bind_address = "0.0.0.0"
+    await web.TCPSite(app, bind_address, PORT).start()
+    if CLONE_MODE == True:
+        await restart_bots()
+    print("Bot Started Powered By @miracle_bots")
+    await idle()
 
-def telegram_bot():
-    app_bot = ApplicationBuilder().token(BOT_TOKEN).build()
-    app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(MessageHandler(filters.Document.ALL, handle_file))
-    app_bot.run_polling()
+# Don't Remove Credit Tg - @miracle_Bots
+# Ask Doubt on telegram @funnytamilan
 
-if __name__ == "__main__":
-    from threading import Thread
-    Thread(target=telegram_bot).start()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+if __name__ == '__main__':
+    try:
+        loop.run_until_complete(start())
+    except KeyboardInterrupt:
+        logging.info('Service Stopped Bye 👋')
+
+
+# Don't Remove Credit Tg - @miracle_Bots
+# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
+# Ask Doubt on telegram @funnytamilan 
